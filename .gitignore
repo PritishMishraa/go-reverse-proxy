@@ -1,0 +1,10 @@
+# .env
+.env
+
+# files and folders
+tmp/
+.air.toml
+
+# Bianry files
+*.exe
+*.bin
