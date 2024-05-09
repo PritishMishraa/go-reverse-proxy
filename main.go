@@ -27,13 +27,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Request for %s", r.URL.Host)
 	BASE_PATH, _ := os.LookupEnv("BASE_PATH")
-
 	if BASE_PATH == "" {
 		log.Fatal("BASE_PATH is not set")
 	}
-	hostname := r.URL.Host
+	
+	hostname := r.Host
 	subdomain := strings.Split(hostname, ".")[0]
 	log.Printf("Request for subdomain: %s", subdomain)
 
