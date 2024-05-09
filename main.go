@@ -26,6 +26,8 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	log.Printf("Request for %s", r.Host)
 	BASE_PATH, _ := os.LookupEnv("BASE_PATH")
 
 	if BASE_PATH == "" {
