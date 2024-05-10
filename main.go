@@ -31,9 +31,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	if BASE_PATH == "" {
 		log.Fatal("BASE_PATH is not set")
 	}
-	
+
 	hostname := r.Host
+	log.Printf("Request for hostname: %s", hostname)
 	subdomain := strings.Split(hostname, ".")[0]
+	if subdomain == "www" {
+		subdomain = strings.Split(hostname, ".")[1]
+	}
 	log.Printf("Request for subdomain: %s", subdomain)
 
 	defaultPath := "/"
