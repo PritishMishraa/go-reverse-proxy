@@ -8,3 +8,6 @@ tmp/
 # Bianry files
 *.exe
 *.bin
+
+# Store
+.DS_Store
