@@ -31,6 +31,10 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	if BASE_PATH == "" {
 		log.Fatal("BASE_PATH is not set")
 	}
+	REDIRECT_URL, _ := os.LookupEnv("REDIRECT_URL")
+	if REDIRECT_URL == "" {
+		log.Fatal("REDIRECT_URL is not set")
+	}
 
 	hostname := r.Host
 	log.Printf("Request for hostname: %s", hostname)
@@ -52,7 +56,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	resp, _ := http.Get(resolvesTo + "/index.html")
 	if resp.StatusCode != 200 {
-		http.Redirect(w, r, "https://smoll-host.vercel.app/", http.StatusSeeOther)
+		http.Redirect(w, r, REDIRECT_URL, http.StatusSeeOther)
 		return
 	}
 	
