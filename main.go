@@ -49,6 +49,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Custom Domain - DB Query
 
 	resolvesTo := fmt.Sprintf("%s/%s", BASE_PATH, subdomain)
+
+	resp, _ := http.Get(resolvesTo + "/index.html")
+	if resp.StatusCode != 200 {
+		http.Redirect(w, r, "https://smoll-host.vercel.app/", http.StatusSeeOther)
+		return
+	}
+	
 	target, err := url.Parse(resolvesTo)
 	log.Printf("Proxying to %s", target)
 	if err != nil {
