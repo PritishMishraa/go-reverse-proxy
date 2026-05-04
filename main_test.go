@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -55,6 +57,32 @@ func TestTargetURLJoinsSubdomain(t *testing.T) {
 	want := "https://static.example.com/sites/demo"
 	if got != want {
 		t.Fatalf("targetURL = %q, want %q", got, want)
+	}
+}
+
+func TestTargetURLAddsLeadingSlashWhenBaseHasNoPath(t *testing.T) {
+	baseURL := mustParseTestURL(t, "https://simple-host.s3.ap-south-1.amazonaws.com")
+	a := &app{baseURL: baseURL}
+
+	got := a.targetURL("miniytm")
+	if got.String() != "https://simple-host.s3.ap-south-1.amazonaws.com/miniytm" {
+		t.Fatalf("targetURL = %q, want S3 object prefix URL", got.String())
+	}
+	if got.Path != "/miniytm" {
+		t.Fatalf("targetURL path = %q, want /miniytm", got.Path)
+	}
+}
+
+func TestJoinURLPathKeepsLeadingSlashForS3IndexObject(t *testing.T) {
+	baseURL := mustParseTestURL(t, "https://simple-host.s3.ap-south-1.amazonaws.com/miniytm")
+	requestURL := mustParseTestURL(t, "/index.html")
+
+	path, rawPath := joinURLPath(baseURL, requestURL)
+	if path != "/miniytm/index.html" {
+		t.Fatalf("path = %q, want /miniytm/index.html", path)
+	}
+	if rawPath != "" {
+		t.Fatalf("rawPath = %q, want empty", rawPath)
 	}
 }
 
@@ -142,6 +170,43 @@ func TestHandleRequestProxiesWithReusableProxy(t *testing.T) {
 	}
 	if rec.Body.String() != "proxied" {
 		t.Fatalf("body = %q, want proxied", rec.Body.String())
+	}
+}
+
+func TestHandleRequestRewritesRootToS3IndexObject(t *testing.T) {
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.String() != "https://simple-host.s3.ap-south-1.amazonaws.com/miniytm/index.html" {
+			t.Fatalf("upstream URL = %q, want S3 index object URL", r.URL.String())
+		}
+		if r.Host != "simple-host.s3.ap-south-1.amazonaws.com" {
+			t.Fatalf("upstream Host = %q, want S3 host", r.Host)
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("proxied")),
+			Request:    r,
+		}, nil
+	})
+	a := &app{
+		baseURL:     mustParseTestURL(t, "https://simple-host.s3.ap-south-1.amazonaws.com"),
+		redirectURL: mustParseTestURL(t, "https://smoll-host.vercel.app/"),
+		client:      &http.Client{Transport: transport},
+		cache:       newExistenceCache(),
+		now:         time.Now,
+	}
+	a.proxy = newReverseProxy(transport)
+	a.cache.set("miniytm", true, time.Now().Add(time.Minute))
+
+	req := httptest.NewRequest(http.MethodGet, "http://miniytm.pritish.in/", nil)
+	req.Host = "miniytm.pritish.in"
+	rec := httptest.NewRecorder()
+
+	a.handleRequest(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 }
 
@@ -284,6 +349,12 @@ func newTestApp(t *testing.T, upstream *httptest.Server, redirectURL string) *ap
 	a.proxy = newReverseProxy(upstream.Client().Transport)
 
 	return a
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 func mustParseTestURL(t *testing.T, rawURL string) *url.URL {

@@ -174,7 +174,15 @@ func (a *app) handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) targetURL(subdomain string) *url.URL {
-	return a.baseURL.JoinPath(subdomain)
+	targetURL := a.baseURL.JoinPath(subdomain)
+	if targetURL.Path != "" && !strings.HasPrefix(targetURL.Path, "/") {
+		targetURL.Path = "/" + targetURL.Path
+	}
+	if targetURL.RawPath != "" && !strings.HasPrefix(targetURL.RawPath, "/") {
+		targetURL.RawPath = "/" + targetURL.RawPath
+	}
+
+	return targetURL
 }
 
 func (a *app) cachedUpstreamExists(ctx context.Context, key string, targetURL *url.URL) (bool, error) {
